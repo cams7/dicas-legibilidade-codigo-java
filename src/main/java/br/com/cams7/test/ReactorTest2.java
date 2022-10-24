@@ -128,7 +128,7 @@ public class ReactorTest2 {
           .parallelStream()
           .collect(Collectors.toMap(CustomerResponse::getId, Function.identity()));
 
-  private static Map<Long, CustomerCardResponse> CUSTOMER_CARDS =
+  private static final Map<Long, CustomerCardResponse> CUSTOMER_CARDS =
       List.of(
               new CustomerCardResponse(1l, "5172563238920845"),
               new CustomerCardResponse(2l, "5585470523496195"),
@@ -136,7 +136,7 @@ public class ReactorTest2 {
           .parallelStream()
           .collect(Collectors.toMap(CustomerCardResponse::getCustomerId, Function.identity()));
 
-  private static Map<Long, List<CartItemResponse>> CART_ITEMS =
+  private static final Map<Long, List<CartItemResponse>> CART_ITEMS =
       List.of(
               new CartItemResponse(1l, 101l, 1, 25.5),
               new CartItemResponse(1l, 102l, 2, 10.3),
@@ -146,12 +146,12 @@ public class ReactorTest2 {
           .parallelStream()
           .collect(Collectors.groupingBy(CartItemResponse::getCustomerId));
 
-  private static Map<Long, Boolean> CUSTOMER_PAYMENTS = Map.of(1l, true, 2l, false);
+  private static final Map<Long, Boolean> CUSTOMER_PAYMENTS = Map.of(1l, true, 2l, false);
 
-  private static Map<String, String> ORDERS = new ConcurrentHashMap<>();
+  private static final Map<String, String> ORDERS = new ConcurrentHashMap<>();
 
-  private static long WEBCLIENT_DELAY_IN_MILLIS = 50l;
-  private static long REPOSITORY_DELAY_IN_MILLIS = 20l;
+  private static final long WEBCLIENT_DELAY_IN_MILLIS = 50l;
+  private static final long REPOSITORY_DELAY_IN_MILLIS = 20l;
 
   // Webclient layer
   private Mono<Customer> getCustomerById(Long customerId) {

@@ -4,11 +4,11 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -18,14 +18,23 @@ import org.apache.commons.collections4.CollectionUtils;
 import org.modelmapper.ModelMapper;
 
 @Slf4j
-public class CommonWayTest {
+public class OldWayTest {
 
   private static final boolean SHOW_LOGS = true;
-  private static final Map<Integer, Boolean> SHOW_TESTS =
-      Map.of(1, true, 2, true, 3, true, 4, true, 5, true);
+
+  private static final Map<Integer, Boolean> SHOW_TESTS;
+
+  static {
+    SHOW_TESTS = new HashMap<>();
+    SHOW_TESTS.put(1, true);
+    SHOW_TESTS.put(2, true);
+    SHOW_TESTS.put(3, true);
+    SHOW_TESTS.put(4, true);
+    SHOW_TESTS.put(5, true);
+  }
 
   public static void main(String[] args) {
-    final var app = new CommonWayTest();
+    final OldWayTest app = new OldWayTest();
     if (SHOW_TESTS.get(1)) {
       System.out.println("1. Registred order:");
       System.out.println(app.saveOrder(1l));
@@ -54,41 +63,57 @@ public class CommonWayTest {
 
   private static final ModelMapper MODEL_MAPPER = new ModelMapper();
 
-  private static final Map<Long, CustomerResponse> CUSTOMERS =
-      List.of(
-              new CustomerResponse(1l, "Gael", "Alves"),
-              new CustomerResponse(2l, "Edson", "Brito"),
-              new CustomerResponse(3l, "Elaine", "Teixeira"),
-              new CustomerResponse(4l, "Stella", "Paz"))
-          .parallelStream()
-          .collect(Collectors.toMap(CustomerResponse::getId, Function.identity()));
+  private static final Map<Long, CustomerResponse> CUSTOMERS;
 
-  private static final Map<Long, CustomerCardResponse> CUSTOMER_CARDS =
-      List.of(
-              new CustomerCardResponse(1l, "5172563238920845"),
-              new CustomerCardResponse(2l, "5585470523496195"),
-              new CustomerCardResponse(3l, "4916563711189276"))
-          .parallelStream()
-          .collect(Collectors.toMap(CustomerCardResponse::getCustomerId, Function.identity()));
+  static {
+    CUSTOMERS = new HashMap<>();
+    CUSTOMERS.put(1l, new CustomerResponse(1l, "Gael", "Alves"));
+    CUSTOMERS.put(2l, new CustomerResponse(2l, "Edson", "Brito"));
+    CUSTOMERS.put(3l, new CustomerResponse(3l, "Elaine", "Teixeira"));
+    CUSTOMERS.put(4l, new CustomerResponse(4l, "Stella", "Paz"));
+  }
 
-  private static final Map<Long, List<CartItemResponse>> CART_ITEMS =
-      List.of(
-              new CartItemResponse(1l, 101l, 1, 25.5),
-              new CartItemResponse(1l, 102l, 2, 10.3),
-              new CartItemResponse(1l, 103l, 3, 16.8),
-              new CartItemResponse(2l, 101l, 2, 25.5),
-              new CartItemResponse(2l, 102l, 5, 10.3))
-          .parallelStream()
-          .collect(Collectors.groupingBy(CartItemResponse::getCustomerId));
+  private static final Map<Long, CustomerCardResponse> CUSTOMER_CARDS;
 
-  private static final Map<Long, Boolean> CUSTOMER_PAYMENTS = Map.of(1l, true, 2l, false);
+  static {
+    CUSTOMER_CARDS = new HashMap<>();
+    CUSTOMER_CARDS.put(1l, new CustomerCardResponse(1l, "5172563238920845"));
+    CUSTOMER_CARDS.put(2l, new CustomerCardResponse(2l, "5585470523496195"));
+    CUSTOMER_CARDS.put(3l, new CustomerCardResponse(3l, "4916563711189276"));
+  }
+
+  private static final Map<Long, List<CartItemResponse>> CART_ITEMS;
+
+  static {
+    CART_ITEMS = new HashMap<>();
+
+    List<CartItemResponse> items1 = new ArrayList<>();
+    items1.add(new CartItemResponse(1l, 101l, 1, 25.5));
+    items1.add(new CartItemResponse(1l, 102l, 2, 10.3));
+    items1.add(new CartItemResponse(1l, 103l, 3, 16.8));
+
+    List<CartItemResponse> items2 = new ArrayList<>();
+    items2.add(new CartItemResponse(2l, 101l, 2, 25.5));
+    items2.add(new CartItemResponse(2l, 102l, 5, 10.3));
+
+    CART_ITEMS.put(1l, items1);
+    CART_ITEMS.put(2l, items2);
+  }
+
+  private static final Map<Long, Boolean> CUSTOMER_PAYMENTS;
+
+  static {
+    CUSTOMER_PAYMENTS = new HashMap<>();
+    CUSTOMER_PAYMENTS.put(1l, true);
+    CUSTOMER_PAYMENTS.put(2l, false);
+  }
 
   private static final List<OrderModel> ORDERS = new ArrayList<>();
 
   // Webclient layer
   private Customer getCustomerById(Long customerId) {
     log("1. Get customer by id: customerId={}", customerId);
-    final var response = CUSTOMERS.get(customerId);
+    final CustomerResponse response = CUSTOMERS.get(customerId);
     if (response == null) return null;
     return new Customer()
         .withCustomerId(customerId)
@@ -98,7 +123,7 @@ public class CommonWayTest {
   // Webclient layer
   private CustomerCard getCustomerCardByCustomerId(Long customerId) {
     log("2. Get customer's card by customer id: customerId={}", customerId);
-    final var response = CUSTOMER_CARDS.get(customerId);
+    final CustomerCardResponse response = CUSTOMER_CARDS.get(customerId);
     if (response == null) return null;
     return MODEL_MAPPER.map(response, CustomerCard.class);
   }
@@ -106,15 +131,18 @@ public class CommonWayTest {
   // Webclient layer
   private List<CartItem> getCartItemsByCustomerId(Long customerId) {
     log("3. Get customer cart's items by customer id: customerId={}", customerId);
-    final var response = CART_ITEMS.get(customerId);
-    if (CollectionUtils.isEmpty(response)) return List.of();
-    return response.parallelStream()
-        .map(
-            item ->
-                MODEL_MAPPER
-                    .map(item, CartItem.class)
-                    .withTotalAmount(item.getUnitPrice() * item.getQuantity()))
-        .collect(Collectors.toList());
+    final List<CartItemResponse> response = CART_ITEMS.get(customerId);
+    if (CollectionUtils.isEmpty(response)) return new ArrayList<>();
+
+    final List<CartItem> items = new ArrayList<>();
+    response.forEach(
+        item -> {
+          items.add(
+              MODEL_MAPPER
+                  .map(item, CartItem.class)
+                  .withTotalAmount(item.getUnitPrice() * item.getQuantity()));
+        });
+    return items;
   }
 
   // Webclient layer
@@ -126,13 +154,16 @@ public class CommonWayTest {
   // Repository layer
   private OrderEntity saveOrder(OrderEntity order) {
     log("4. Save order: order={}", order);
-    final var customer = MODEL_MAPPER.map(order.getCustomer(), CustomerModel.class);
-    final var card = MODEL_MAPPER.map(order.getCard(), CustomerCardModel.class);
-    final var items =
-        order.getItems().parallelStream()
-            .map(item -> MODEL_MAPPER.map(item, CartItemModel.class))
-            .collect(Collectors.toList());
-    final var model = new OrderModel();
+    final CustomerModel customer = MODEL_MAPPER.map(order.getCustomer(), CustomerModel.class);
+    final CustomerCardModel card = MODEL_MAPPER.map(order.getCard(), CustomerCardModel.class);
+    final List<CartItemModel> items = new ArrayList<>();
+    order
+        .getItems()
+        .forEach(
+            item -> {
+              items.add(MODEL_MAPPER.map(item, CartItemModel.class));
+            });
+    final OrderModel model = new OrderModel();
     model.setId(UUID.randomUUID().toString());
     model.setRegistrationDate(order.getRegistrationDate().toLocalDateTime());
     model.setTotal(order.getTotalAmount());
@@ -147,22 +178,17 @@ public class CommonWayTest {
   // Repository layer
   private OrderEntity updatePaymentStatus(String orderId, Boolean validPayment) {
     log("6. Update payment status: orderId={}, validPayment={}", orderId, validPayment);
-    final var model =
-        ORDERS.parallelStream()
-            .filter(order -> orderId.equals(order.getId()))
-            .findFirst()
-            .map(
-                order -> {
-                  order.setValidPayment(validPayment);
-                  return order;
-                })
-            .orElseThrow(
-                () ->
-                    new RuntimeException(
-                        String.format(
-                            "Some error happened while updating payment status on order '%s'",
-                            orderId)));
-    return getOrder(model);
+
+    for (int i = 0; i < ORDERS.size(); i++) {
+      OrderModel model = ORDERS.get(i);
+      if (orderId.equals(model.getId())) {
+        model.setValidPayment(validPayment);
+        return getOrder(model);
+      }
+    }
+
+    throw new RuntimeException(
+        String.format("Some error happened while updating payment status on order '%s'", orderId));
   }
 
   private static OrderEntity getOrder(OrderModel order) {
@@ -175,21 +201,19 @@ public class CommonWayTest {
 
   // Core layer
   public OrderEntity saveOrder(Long customerId) {
-    final var customer = getCustomerById(customerId);
+    final Customer customer = getCustomerById(customerId);
     if (customer == null) return null;
 
-    final var card = getCustomerCardByCustomerId(customerId);
+    final CustomerCard card = getCustomerCardByCustomerId(customerId);
     if (card == null) return null;
 
-    final var items =
-        getCartItemsByCustomerId(customerId).parallelStream()
-            .sorted(CommonWayTest::compare)
-            .collect(Collectors.toList());
+    final List<CartItem> items = getCartItemsByCustomerId(customerId);
+    Collections.sort(items);
 
     if (CollectionUtils.isEmpty(items))
       throw new RuntimeException("There aren't items in the cart");
 
-    var order = new OrderEntity();
+    OrderEntity order = new OrderEntity();
     order.setRegistrationDate(ZonedDateTime.now());
     order.setTotalAmount(getTotalAmount(items));
     order.setValidPayment(false);
@@ -199,7 +223,7 @@ public class CommonWayTest {
 
     order = saveOrder(order);
 
-    final var isValidPayment = isValidPaymentByCustomerId(order.getCustomer().getCustomerId());
+    final Boolean isValidPayment = isValidPaymentByCustomerId(order.getCustomer().getCustomerId());
 
     order = updatePaymentStatus(order.getOrderId(), isValidPayment);
 
@@ -207,7 +231,11 @@ public class CommonWayTest {
   }
 
   private static double getTotalAmount(List<CartItem> items) {
-    return items.parallelStream().mapToDouble(CartItem::getTotalAmount).sum();
+    double totalAmount = 0;
+    for (int i = 0; i < items.size(); i++) {
+      totalAmount += items.get(i).getTotalAmount();
+    }
+    return totalAmount;
   }
 
   private static int compare(CartItem item1, CartItem item2) {
@@ -297,9 +325,14 @@ public class CommonWayTest {
   @With
   @NoArgsConstructor
   @AllArgsConstructor
-  public static class CartItem {
+  public static class CartItem implements Comparable<CartItem> {
     private Long productId;
     private Double totalAmount;
+
+    @Override
+    public int compareTo(CartItem cart) {
+      return compare(this, cart);
+    }
   }
 
   // Repository layer
