@@ -6,6 +6,7 @@ import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -18,20 +19,20 @@ import org.apache.commons.collections4.CollectionUtils;
 import org.modelmapper.ModelMapper;
 
 @Slf4j
-public class CommonWayTest {
+public class OptionalTest {
 
   private static final boolean SHOW_LOGS = true;
 
   public static void main(String[] args) {
-    final var app = new CommonWayTest();
+    final var app = new OptionalTest();
     System.out.println("1. Registred order:");
-    System.out.println(app.saveOrder(1l));
+    System.out.println(app.saveOrder(1l).get());
     System.out.println("2. Registred order with invalid payment:");
-    System.out.println(app.saveOrder(2l));
+    System.out.println(app.saveOrder(2l).get());
     System.out.println("3. Customer not found:");
-    System.out.println(app.saveOrder(6l));
+    System.out.println(app.saveOrder(6l).orElse(null));
     System.out.println("4. Customer's card not found:");
-    System.out.println(app.saveOrder(5l));
+    System.out.println(app.saveOrder(5l).orElse(null));
     System.out.println("5. Customer cart's items not found:");
     System.out.println(app.saveOrder(4l));
   }
@@ -72,21 +73,23 @@ public class CommonWayTest {
   private static List<OrderModel> ORDERS = new ArrayList<>();
 
   // Webclient layer
-  private Customer getCustomerById(Long customerId) {
+  private Optional<Customer> getCustomerById(Long customerId) {
     log("1. Get customer by id: customerId={}", customerId);
     final var response = CUSTOMERS.get(customerId);
-    if (response == null) return null;
-    return new Customer()
-        .withCustomerId(customerId)
-        .withFullName(String.format("%s %s", response.getFirstName(), response.getLastName()));
+    return Optional.ofNullable(response)
+        .map(
+            customer ->
+                new Customer()
+                    .withCustomerId(customerId)
+                    .withFullName(
+                        String.format("%s %s", customer.getFirstName(), customer.getLastName())));
   }
 
   // Webclient layer
-  private CustomerCard getCustomerCardByCustomerId(Long customerId) {
+  private Optional<CustomerCard> getCustomerCardByCustomerId(Long customerId) {
     log("2. Get customer's card by customer id: customerId={}", customerId);
     final var response = CUSTOMER_CARDS.get(customerId);
-    if (response == null) return null;
-    return MODEL_MAPPER.map(response, CustomerCard.class);
+    return Optional.ofNullable(response).map(card -> MODEL_MAPPER.map(card, CustomerCard.class));
   }
 
   // Webclient layer
@@ -104,13 +107,13 @@ public class CommonWayTest {
   }
 
   // Webclient layer
-  private Boolean isValidPaymentByCustomerId(Long customerId) {
+  private Optional<Boolean> isValidPaymentByCustomerId(Long customerId) {
     log("5. Is valid payment by customer id: customerId={}", customerId);
-    return CUSTOMER_PAYMENTS.get(customerId);
+    return Optional.ofNullable(CUSTOMER_PAYMENTS.get(customerId));
   }
 
   // Repository layer
-  private OrderEntity saveOrder(OrderEntity order) {
+  private Optional<OrderEntity> saveOrder(OrderEntity order) {
     log("4. Save order: order={}", order);
     final var customer = MODEL_MAPPER.map(order.getCustomer(), CustomerModel.class);
     final var card = MODEL_MAPPER.map(order.getCard(), CustomerCardModel.class);
@@ -127,28 +130,21 @@ public class CommonWayTest {
     model.setCard(card);
     model.setItems(items);
     ORDERS.add(model);
-    return getOrder(model);
+    return Optional.of(getOrder(model));
   }
 
   // Repository layer
-  private OrderEntity updatePaymentStatus(String orderId, Boolean validPayment) {
+  private Optional<OrderEntity> updatePaymentStatus(String orderId, Boolean validPayment) {
     log("6. Update payment status: orderId={}, validPayment={}", orderId, validPayment);
-    final var model =
-        ORDERS.parallelStream()
-            .filter(order -> orderId.equals(order.getId()))
-            .findFirst()
-            .map(
-                order -> {
-                  order.setValidPayment(validPayment);
-                  return order;
-                })
-            .orElseThrow(
-                () ->
-                    new RuntimeException(
-                        String.format(
-                            "Some error happened while updating payment status on order '%s'",
-                            orderId)));
-    return getOrder(model);
+    return ORDERS.parallelStream()
+        .filter(order -> orderId.equals(order.getId()))
+        .findFirst()
+        .map(
+            order -> {
+              order.setValidPayment(validPayment);
+              return order;
+            })
+        .map(OptionalTest::getOrder);
   }
 
   private static OrderEntity getOrder(OrderModel order) {
@@ -160,36 +156,37 @@ public class CommonWayTest {
   }
 
   // Core layer
-  public OrderEntity saveOrder(Long customerId) {
-    final var customer = getCustomerById(customerId);
-    if (customer == null) return null;
+  public Optional<OrderEntity> saveOrder(Long customerId) {
+    return getCustomerById(customerId)
+        .map(customer -> new OrderEntity().withCustomer(customer))
+        .flatMap(
+            order ->
+                getCustomerCardByCustomerId(order.getCustomer().getCustomerId())
+                    .map(card -> order.withCard(card)))
+        .map(
+            order -> {
+              final var items =
+                  getCartItemsByCustomerId(customerId).parallelStream()
+                      .sorted(OptionalTest::compare)
+                      .collect(Collectors.toList());
 
-    final var card = getCustomerCardByCustomerId(customerId);
-    if (card == null) return null;
-
-    final var items =
-        getCartItemsByCustomerId(customerId).parallelStream()
-            .sorted(CommonWayTest::compare)
-            .collect(Collectors.toList());
-
-    if (CollectionUtils.isEmpty(items))
-      throw new RuntimeException("There aren't items in the cart");
-
-    var order = new OrderEntity();
-    order.setRegistrationDate(ZonedDateTime.now());
-    order.setTotalAmount(getTotalAmount(items));
-    order.setValidPayment(false);
-    order.setCustomer(customer);
-    order.setCard(card);
-    order.setItems(items);
-
-    order = saveOrder(order);
-
-    final var isValidPayment = isValidPaymentByCustomerId(order.getCustomer().getCustomerId());
-
-    order = updatePaymentStatus(order.getOrderId(), isValidPayment);
-
-    return order;
+              if (CollectionUtils.isEmpty(items))
+                throw new RuntimeException("There aren't items in the cart");
+              return order.withItems(items);
+            })
+        .flatMap(
+            order -> {
+              order.setRegistrationDate(ZonedDateTime.now());
+              order.setTotalAmount(getTotalAmount(order.getItems()));
+              order.setValidPayment(false);
+              return saveOrder(order);
+            })
+        .flatMap(
+            order -> {
+              return isValidPaymentByCustomerId(order.getCustomer().getCustomerId())
+                  .flatMap(
+                      isValidPayment -> updatePaymentStatus(order.getOrderId(), isValidPayment));
+            });
   }
 
   private static double getTotalAmount(List<CartItem> items) {
