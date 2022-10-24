@@ -16,39 +16,88 @@ import lombok.With;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
 import org.modelmapper.ModelMapper;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 @Slf4j
-public class CommonWayTest {
+public class ReactorTest1 {
 
   private static final boolean SHOW_LOGS = true;
   private static final Map<Integer, Boolean> SHOW_TESTS =
       Map.of(1, true, 2, true, 3, true, 4, true, 5, true);
 
   public static void main(String[] args) {
-    final var app = new CommonWayTest();
+    final var app = new ReactorTest1();
+
     if (SHOW_TESTS.get(1)) {
-      System.out.println("1. Registred order:");
-      System.out.println(app.saveOrder(1l));
+      app.saveOrder(1l)
+          .subscribe(
+              order -> {
+                System.out.println("1. Registred order:");
+                System.out.println(order);
+              },
+              error -> {
+                System.out.println("1. Error: " + error.getMessage());
+              },
+              () -> {
+                System.out.println("1. Completed");
+              });
     }
     if (SHOW_TESTS.get(2)) {
-      System.out.println("2. Registred order with invalid payment:");
-      System.out.println(app.saveOrder(2l));
+      app.saveOrder(2l)
+          .subscribe(
+              order -> {
+                System.out.println("2. Registred order with invalid payment:");
+                System.out.println(order);
+              },
+              error -> {
+                System.out.println("2. Error: " + error.getMessage());
+              },
+              () -> {
+                System.out.println("2. Completed");
+              });
     }
     if (SHOW_TESTS.get(3)) {
-      System.out.println("3. Customer not found:");
-      System.out.println(app.saveOrder(5l));
+      app.saveOrder(5l)
+          .subscribe(
+              order -> {
+                System.out.println("3. Customer not found:");
+                System.out.println(order);
+              },
+              error -> {
+                System.out.println("3. Error: " + error.getMessage());
+              },
+              () -> {
+                System.out.println("3. Completed");
+              });
     }
     if (SHOW_TESTS.get(4)) {
-      System.out.println("4. Customer's card not found:");
-      System.out.println(app.saveOrder(4l));
+      app.saveOrder(4l)
+          .subscribe(
+              order -> {
+                System.out.println("4. Customer's card not found:");
+                System.out.println(order);
+              },
+              error -> {
+                System.out.println("4. Error: " + error.getMessage());
+              },
+              () -> {
+                System.out.println("4. Completed");
+              });
     }
     if (SHOW_TESTS.get(5)) {
-      System.out.println("5. Customer cart's items not found:");
-      try {
-        System.out.println(app.saveOrder(3l));
-      } catch (RuntimeException e) {
-        System.out.println("5. Error: " + e.getMessage());
-      }
+      app.saveOrder(3l)
+          .subscribe(
+              order -> {
+                System.out.println("5. Customer cart's items not found:");
+                System.out.println(order);
+              },
+              error -> {
+                System.out.println("5. Error: " + error.getMessage());
+              },
+              () -> {
+                System.out.println("5. Completed");
+              });
     }
   }
 
@@ -86,46 +135,53 @@ public class CommonWayTest {
   private static List<OrderModel> ORDERS = new ArrayList<>();
 
   // Webclient layer
-  private Customer getCustomerById(Long customerId) {
-    log("1. Get customer by id: customerId={}", customerId);
+  private Mono<Customer> getCustomerById(Long customerId) {
+    log("1.1. Get customer by id: customerId={}", customerId);
     final var response = CUSTOMERS.get(customerId);
-    if (response == null) return null;
-    return new Customer()
-        .withCustomerId(customerId)
-        .withFullName(String.format("%s %s", response.getFirstName(), response.getLastName()));
+    return Mono.justOrEmpty(response)
+        .map(
+            customer ->
+                new Customer()
+                    .withCustomerId(customerId)
+                    .withFullName(
+                        String.format("%s %s", customer.getFirstName(), customer.getLastName())))
+        .doOnNext(customer -> log("1.2. Getting customer: customer={}", customer));
   }
 
   // Webclient layer
-  private CustomerCard getCustomerCardByCustomerId(Long customerId) {
-    log("2. Get customer's card by customer id: customerId={}", customerId);
+  private Mono<CustomerCard> getCustomerCardByCustomerId(Long customerId) {
+    log("2.1. Get customer's card by customer id: customerId={}", customerId);
     final var response = CUSTOMER_CARDS.get(customerId);
-    if (response == null) return null;
-    return MODEL_MAPPER.map(response, CustomerCard.class);
+    return Mono.justOrEmpty(response)
+        .map(card -> MODEL_MAPPER.map(card, CustomerCard.class))
+        .doOnNext(card -> log("2.2. Getting customer's card: card={}", card));
   }
 
   // Webclient layer
-  private List<CartItem> getCartItemsByCustomerId(Long customerId) {
-    log("3. Get customer cart's items by customer id: customerId={}", customerId);
+  private Flux<CartItem> getCartItemsByCustomerId(Long customerId) {
+    log("3.1. Get customer cart's items by customer id: customerId={}", customerId);
     final var response = CART_ITEMS.get(customerId);
-    if (CollectionUtils.isEmpty(response)) return List.of();
-    return response.parallelStream()
+    if (CollectionUtils.isEmpty(response)) return Flux.empty();
+    return Flux.fromIterable(response)
         .map(
             item ->
                 MODEL_MAPPER
                     .map(item, CartItem.class)
                     .withTotalAmount(item.getUnitPrice() * item.getQuantity()))
-        .collect(Collectors.toList());
+        .doOnNext(item -> log("3.2. Getting customer cart's item: item={}", item));
   }
 
   // Webclient layer
-  private Boolean isValidPaymentByCustomerId(Long customerId) {
-    log("5. Is valid payment by customer id: customerId={}", customerId);
-    return CUSTOMER_PAYMENTS.get(customerId);
+  private Mono<Boolean> isValidPaymentByCustomerId(Long customerId) {
+    log("5.1. Is valid payment by customer id: customerId={}", customerId);
+    return Mono.justOrEmpty(CUSTOMER_PAYMENTS.get(customerId))
+        .doOnNext(
+            isValidPayment -> log("5.2. Is valid payment: isValidPayment={}", isValidPayment));
   }
 
   // Repository layer
-  private OrderEntity saveOrder(OrderEntity order) {
-    log("4. Save order: order={}", order);
+  private Mono<OrderEntity> saveOrder(OrderEntity order) {
+    log("4.1. Save order: order={}", order);
     final var customer = MODEL_MAPPER.map(order.getCustomer(), CustomerModel.class);
     final var card = MODEL_MAPPER.map(order.getCard(), CustomerCardModel.class);
     final var items =
@@ -141,28 +197,22 @@ public class CommonWayTest {
     model.setCard(card);
     model.setItems(items);
     ORDERS.add(model);
-    return getOrder(model);
+    return Mono.just(getOrder(model))
+        .doOnNext(savedOrder -> log("4.2. Saving order: order={}", savedOrder));
   }
 
   // Repository layer
-  private OrderEntity updatePaymentStatus(String orderId, Boolean validPayment) {
-    log("6. Update payment status: orderId={}, validPayment={}", orderId, validPayment);
-    final var model =
-        ORDERS.parallelStream()
-            .filter(order -> orderId.equals(order.getId()))
-            .findFirst()
-            .map(
-                order -> {
-                  order.setValidPayment(validPayment);
-                  return order;
-                })
-            .orElseThrow(
-                () ->
-                    new RuntimeException(
-                        String.format(
-                            "Some error happened while updating payment status on order '%s'",
-                            orderId)));
-    return getOrder(model);
+  private Mono<OrderEntity> updatePaymentStatus(String orderId, Boolean validPayment) {
+    log("6.1. Update payment status: orderId={}, validPayment={}", orderId, validPayment);
+    return Mono.justOrEmpty(
+            ORDERS.parallelStream().filter(order -> orderId.equals(order.getId())).findFirst())
+        .map(
+            order -> {
+              order.setValidPayment(validPayment);
+              return order;
+            })
+        .map(ReactorTest1::getOrder)
+        .doOnNext(order -> log("6.2. Updating payment status: order={}", order));
   }
 
   private static OrderEntity getOrder(OrderModel order) {
@@ -174,36 +224,37 @@ public class CommonWayTest {
   }
 
   // Core layer
-  public OrderEntity saveOrder(Long customerId) {
-    final var customer = getCustomerById(customerId);
-    if (customer == null) return null;
-
-    final var card = getCustomerCardByCustomerId(customerId);
-    if (card == null) return null;
-
-    final var items =
-        getCartItemsByCustomerId(customerId).parallelStream()
-            .sorted(CommonWayTest::compare)
-            .collect(Collectors.toList());
-
-    if (CollectionUtils.isEmpty(items))
-      throw new RuntimeException("There aren't items in the cart");
-
-    var order = new OrderEntity();
-    order.setRegistrationDate(ZonedDateTime.now());
-    order.setTotalAmount(getTotalAmount(items));
-    order.setValidPayment(false);
-    order.setCustomer(customer);
-    order.setCard(card);
-    order.setItems(items);
-
-    order = saveOrder(order);
-
-    final var isValidPayment = isValidPaymentByCustomerId(order.getCustomer().getCustomerId());
-
-    order = updatePaymentStatus(order.getOrderId(), isValidPayment);
-
-    return order;
+  public Mono<OrderEntity> saveOrder(Long customerId) {
+    return getCustomerById(customerId)
+        .map(customer -> new OrderEntity().withCustomer(customer))
+        .flatMap(
+            order ->
+                Mono.zip(
+                    getCustomerCardByCustomerId(order.getCustomer().getCustomerId()),
+                    getCartItemsByCustomerId(order.getCustomer().getCustomerId())
+                        .parallel()
+                        .ordered(ReactorTest1::compare)
+                        .collectList()
+                        .map(
+                            items -> {
+                              if (CollectionUtils.isEmpty(items))
+                                throw new RuntimeException("There aren't items in the cart");
+                              return items;
+                            }),
+                    (card, items) -> order.withCard(card).withItems(items)))
+        .flatMap(
+            order -> {
+              order.setRegistrationDate(ZonedDateTime.now());
+              order.setTotalAmount(getTotalAmount(order.getItems()));
+              order.setValidPayment(false);
+              return saveOrder(order);
+            })
+        .flatMap(
+            order -> {
+              return isValidPaymentByCustomerId(order.getCustomer().getCustomerId())
+                  .flatMap(
+                      isValidPayment -> updatePaymentStatus(order.getOrderId(), isValidPayment));
+            });
   }
 
   private static double getTotalAmount(List<CartItem> items) {

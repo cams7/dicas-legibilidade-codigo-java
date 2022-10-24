@@ -22,19 +22,35 @@ import org.modelmapper.ModelMapper;
 public class OptionalTest {
 
   private static final boolean SHOW_LOGS = true;
+  private static final Map<Integer, Boolean> SHOW_TESTS =
+      Map.of(1, true, 2, true, 3, true, 4, true, 5, true);
 
   public static void main(String[] args) {
     final var app = new OptionalTest();
-    System.out.println("1. Registred order:");
-    System.out.println(app.saveOrder(1l).get());
-    System.out.println("2. Registred order with invalid payment:");
-    System.out.println(app.saveOrder(2l).get());
-    System.out.println("3. Customer not found:");
-    System.out.println(app.saveOrder(6l).orElse(null));
-    System.out.println("4. Customer's card not found:");
-    System.out.println(app.saveOrder(5l).orElse(null));
-    System.out.println("5. Customer cart's items not found:");
-    System.out.println(app.saveOrder(4l));
+    if (SHOW_TESTS.get(1)) {
+      System.out.println("1. Registred order:");
+      System.out.println(app.saveOrder(1l).get());
+    }
+    if (SHOW_TESTS.get(2)) {
+      System.out.println("2. Registred order with invalid payment:");
+      System.out.println(app.saveOrder(2l).get());
+    }
+    if (SHOW_TESTS.get(3)) {
+      System.out.println("3. Customer not found:");
+      System.out.println(app.saveOrder(5l).orElse(null));
+    }
+    if (SHOW_TESTS.get(4)) {
+      System.out.println("4. Customer's card not found:");
+      System.out.println(app.saveOrder(4l).orElse(null));
+    }
+    if (SHOW_TESTS.get(5)) {
+      System.out.println("5. Customer cart's items not found:");
+      try {
+        System.out.println(app.saveOrder(3l));
+      } catch (RuntimeException e) {
+        System.out.println("5. Error: " + e.getMessage());
+      }
+    }
   }
 
   private static final ModelMapper MODEL_MAPPER = new ModelMapper();
@@ -44,8 +60,7 @@ public class OptionalTest {
               new CustomerResponse(1l, "Gael", "Alves"),
               new CustomerResponse(2l, "Edson", "Brito"),
               new CustomerResponse(3l, "Elaine", "Teixeira"),
-              new CustomerResponse(4l, "Stella", "Paz"),
-              new CustomerResponse(5l, "Severino", "Galvão"))
+              new CustomerResponse(4l, "Stella", "Paz"))
           .parallelStream()
           .collect(Collectors.toMap(CustomerResponse::getId, Function.identity()));
 
@@ -53,8 +68,7 @@ public class OptionalTest {
       List.of(
               new CustomerCardResponse(1l, "5172563238920845"),
               new CustomerCardResponse(2l, "5585470523496195"),
-              new CustomerCardResponse(3l, "4916563711189276"),
-              new CustomerCardResponse(4l, "5559232861569823"))
+              new CustomerCardResponse(3l, "4916563711189276"))
           .parallelStream()
           .collect(Collectors.toMap(CustomerCardResponse::getCustomerId, Function.identity()));
 
@@ -166,7 +180,7 @@ public class OptionalTest {
         .map(
             order -> {
               final var items =
-                  getCartItemsByCustomerId(customerId).parallelStream()
+                  getCartItemsByCustomerId(order.getCustomer().getCustomerId()).parallelStream()
                       .sorted(OptionalTest::compare)
                       .collect(Collectors.toList());
 
