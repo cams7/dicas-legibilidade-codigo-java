@@ -44,6 +44,7 @@ public class OldWayTest {
     SHOW_TESTS.put(4, true);
     SHOW_TESTS.put(5, true);
     SHOW_TESTS.put(6, true);
+    SHOW_TESTS.put(7, true);
   }
 
   public static void main(String[] args) {
@@ -79,6 +80,10 @@ public class OldWayTest {
               order -> {
                 System.out.println(order);
               });
+    }
+    if (SHOW_TESTS.get(7)) {
+      System.out.println("7. Get order ids:");
+      System.out.println(app.getOrderIds());
     }
   }
 
@@ -227,7 +232,7 @@ public class OldWayTest {
 
   // Repository layer
   private List<OrderEntity> getOrders() {
-    log("Get all orders");
+    log("Get orders");
     List<OrderEntity> orders = new ArrayList<>();
 
     for (String orderId : ORDERS.keySet()) {
@@ -242,7 +247,7 @@ public class OldWayTest {
         final OrderModel model = OBJECT_MAPPER.readValue(json, OrderModel.class);
         orders.add(getOrder(model));
       } catch (JsonProcessingException e) {
-        throw new RuntimeException("An error occurred while trying to getting all orders", e);
+        throw new RuntimeException("An error occurred while trying to get orders", e);
       }
     }
 
@@ -255,6 +260,20 @@ public class OldWayTest {
         .withOrderId(order.getId())
         .withTotalAmount(order.getTotal())
         .withRegistrationDate(order.getRegistrationDate().atZone(ZoneId.of("America/Sao_Paulo")));
+  }
+
+  // Repository layer
+  private String getIds() {
+    String orderIds = "";
+    List<OrderEntity> orders = getOrders();
+    int totalOrders = orders.size();
+    if (totalOrders > 0) {
+      for (int i = 0; i < orders.size(); i++) {
+        orderIds += orders.get(i).getOrderId() + ",";
+      }
+      orderIds = orderIds.substring(0, orderIds.length() - 1);
+    }
+    return orderIds;
   }
 
   // Core layer
@@ -292,6 +311,11 @@ public class OldWayTest {
   // Core layer
   public List<OrderEntity> getAllOrders() {
     return getOrders();
+  }
+
+  // Core layer
+  public String getOrderIds() {
+    return getIds();
   }
 
   private static double getTotalAmount(List<CartItem> items) {

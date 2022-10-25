@@ -34,7 +34,7 @@ public class OptionalTest {
 
   private static final boolean SHOW_LOGS = true;
   private static final Map<Integer, Boolean> SHOW_TESTS =
-      Map.of(1, true, 2, true, 3, true, 4, true, 5, true, 6, true);
+      Map.of(1, true, 2, true, 3, true, 4, true, 5, true, 6, true, 7, true);
 
   public static void main(String[] args) {
     final var app = new OptionalTest();
@@ -69,6 +69,10 @@ public class OptionalTest {
               order -> {
                 System.out.println(order);
               });
+    }
+    if (SHOW_TESTS.get(7)) {
+      System.out.println("7. Get order ids:");
+      System.out.println(app.getOrderIds().get());
     }
   }
 
@@ -198,7 +202,7 @@ public class OptionalTest {
 
   // Repository layer
   private List<OrderEntity> getOrders() {
-    log("Get all orders");
+    log("Get orders");
 
     return ORDERS.entrySet().parallelStream()
         .map(
@@ -214,8 +218,7 @@ public class OptionalTest {
               try {
                 return OBJECT_MAPPER.readValue(json, OrderModel.class);
               } catch (JsonProcessingException e) {
-                throw new RuntimeException(
-                    "An error occurred while trying to getting all orders", e);
+                throw new RuntimeException("An error occurred while trying to get orders", e);
               }
             })
         .map(OptionalTest::getOrder)
@@ -228,6 +231,15 @@ public class OptionalTest {
         .withOrderId(order.getId())
         .withTotalAmount(order.getTotal())
         .withRegistrationDate(order.getRegistrationDate().atZone(ZoneId.of("America/Sao_Paulo")));
+  }
+
+  // Repository layer
+  private Optional<String> getIds() {
+    return Optional.ofNullable(
+        getOrders().parallelStream()
+            .map(OrderEntity::getOrderId)
+            .distinct()
+            .collect(Collectors.joining(",")));
   }
 
   // Core layer
@@ -267,6 +279,11 @@ public class OptionalTest {
   // Core layer
   public List<OrderEntity> getAllOrders() {
     return getOrders();
+  }
+
+  // Core layer
+  public Optional<String> getOrderIds() {
+    return getIds();
   }
 
   private static double getTotalAmount(List<CartItem> items) {

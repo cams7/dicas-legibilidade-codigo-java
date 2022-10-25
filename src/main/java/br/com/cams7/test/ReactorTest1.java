@@ -35,7 +35,7 @@ public class ReactorTest1 {
 
   private static final boolean SHOW_LOGS = true;
   private static final Map<Integer, Boolean> SHOW_TESTS =
-      Map.of(1, true, 2, true, 3, true, 4, true, 5, true, 6, true);
+      Map.of(1, true, 2, true, 3, true, 4, true, 5, true, 6, true, 7, true);
 
   public static void main(String[] args) {
     final var app = new ReactorTest1();
@@ -118,6 +118,19 @@ public class ReactorTest1 {
               },
               () -> {
                 System.out.println("6. Get order -> Completed");
+              });
+    }
+    if (SHOW_TESTS.get(7)) {
+      app.getOrderIds()
+          .subscribe(
+              orderIds -> {
+                System.out.println("7. Get order id: " + orderIds);
+              },
+              error -> {
+                System.out.println("7. Get order id -> Error: " + error.getMessage());
+              },
+              () -> {
+                System.out.println("7. Get order id -> Completed");
               });
     }
   }
@@ -255,7 +268,7 @@ public class ReactorTest1 {
 
   // Repository layer
   private Flux<OrderEntity> getOrders() {
-    log("Get all orders");
+    log("Get orders");
 
     return Flux.fromIterable(ORDERS.entrySet())
         .map(
@@ -270,8 +283,7 @@ public class ReactorTest1 {
               try {
                 return OBJECT_MAPPER.readValue(json, OrderModel.class);
               } catch (JsonProcessingException e) {
-                throw new RuntimeException(
-                    "An error occurred while trying to getting all orders", e);
+                throw new RuntimeException("An error occurred while trying to get orders", e);
               }
             })
         .map(ReactorTest1::getOrder)
@@ -284,6 +296,16 @@ public class ReactorTest1 {
         .withOrderId(order.getId())
         .withTotalAmount(order.getTotal())
         .withRegistrationDate(order.getRegistrationDate().atZone(ZoneId.of("America/Sao_Paulo")));
+  }
+
+  // Repository layer
+  private Mono<String> getIds() {
+    return getOrders()
+        .map(OrderEntity::getOrderId)
+        .reduce(
+            (orderIds, orderId) -> {
+              return String.format("%s,%s", orderIds, orderId);
+            });
   }
 
   // Core layer
@@ -323,6 +345,11 @@ public class ReactorTest1 {
   // Core layer
   public Flux<OrderEntity> getAllOrders() {
     return getOrders();
+  }
+
+  // Core layer
+  public Mono<String> getOrderIds() {
+    return getIds();
   }
 
   private static double getTotalAmount(List<CartItem> items) {
