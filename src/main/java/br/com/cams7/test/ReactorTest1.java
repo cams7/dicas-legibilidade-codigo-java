@@ -385,7 +385,8 @@ public class ReactorTest1 {
             order -> {
               return isValidPaymentByCustomerId(order.getCustomer().getCustomerId())
                   .flatMap(
-                      isValidPayment -> updatePaymentStatus(order.getOrderId(), isValidPayment));
+                      isValidPayment -> updatePaymentStatus(order.getOrderId(), isValidPayment))
+                  .switchIfEmpty(Mono.just(order));
             });
   }
 

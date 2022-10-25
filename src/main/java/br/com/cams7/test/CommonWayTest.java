@@ -292,9 +292,11 @@ public class CommonWayTest {
 
     final var isValidPayment = isValidPaymentByCustomerId(order.getCustomer().getCustomerId());
 
-    order = updatePaymentStatus(order.getOrderId(), isValidPayment);
+    final var updatedOrder = updatePaymentStatus(order.getOrderId(), isValidPayment);
 
-    return order;
+    if (updatedOrder == null) return order;
+
+    return updatedOrder;
   }
 
   // Core layer

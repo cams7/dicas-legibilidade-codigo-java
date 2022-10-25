@@ -296,9 +296,15 @@ public class OptionalTest {
             })
         .flatMap(
             order -> {
-              return isValidPaymentByCustomerId(order.getCustomer().getCustomerId())
-                  .flatMap(
-                      isValidPayment -> updatePaymentStatus(order.getOrderId(), isValidPayment));
+              final var updatedOrder =
+                  isValidPaymentByCustomerId(order.getCustomer().getCustomerId())
+                      .flatMap(
+                          isValidPayment ->
+                              updatePaymentStatus(order.getOrderId(), isValidPayment));
+              if (updatedOrder.isEmpty()) {
+                return Optional.of(order);
+              }
+              return updatedOrder;
             });
   }
 

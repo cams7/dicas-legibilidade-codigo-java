@@ -416,6 +416,7 @@ public class ReactorTest2 {
                   .flatMap(
                       isValidPayment ->
                           updatePaymentStatus(order.getOrderId(), isValidPayment)
+                              .switchIfEmpty(Mono.just(order))
                               .subscribeOn(Schedulers.boundedElastic()));
             });
   }
