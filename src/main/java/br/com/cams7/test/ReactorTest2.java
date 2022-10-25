@@ -17,7 +17,6 @@ import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
@@ -204,7 +203,7 @@ public class ReactorTest2 {
   // Repository layer
   private Mono<OrderEntity> saveOrder(OrderEntity order) {
     log("4.1. Save order: order={}", order);
-    return Mono.fromCallable(
+    return Mono.defer(
             () -> {
               final var customer = MODEL_MAPPER.map(order.getCustomer(), CustomerModel.class);
               final var card = MODEL_MAPPER.map(order.getCard(), CustomerCardModel.class);
@@ -221,10 +220,16 @@ public class ReactorTest2 {
               model.setCard(card);
               model.setItems(items);
 
-              ORDERS.put(model.getId(), OBJECT_MAPPER.writeValueAsString(model));
-
               sleep(REPOSITORY_DELAY_IN_MILLIS);
-              return getOrder(model);
+
+              try {
+                ORDERS.put(model.getId(), OBJECT_MAPPER.writeValueAsString(model));
+              } catch (JsonProcessingException e) {
+                log.error("An error occurred while trying to save a new order", e);
+                return Mono.empty();
+              }
+
+              return Mono.just(getOrder(model));
             })
         .doOnNext(savedOrder -> log("4.2. Saving order: order={}", savedOrder));
   }
@@ -235,22 +240,22 @@ public class ReactorTest2 {
     return Mono.defer(
             () -> {
               sleep(REPOSITORY_DELAY_IN_MILLIS);
-              return Mono.justOrEmpty(
-                  Optional.ofNullable(ORDERS.get(orderId))
-                      .map(
-                          json -> {
-                            try {
-                              return OBJECT_MAPPER.readValue(json, OrderModel.class);
-                            } catch (JsonProcessingException e) {
-                              throw new RuntimeException(e);
-                            }
-                          })
-                      .map(
-                          order -> {
-                            order.setValidPayment(validPayment);
-                            return order;
-                          })
-                      .map(ReactorTest2::getOrder));
+              return Mono.justOrEmpty(ORDERS.get(orderId))
+                  .flatMap(
+                      json -> {
+                        try {
+                          return Mono.justOrEmpty(OBJECT_MAPPER.readValue(json, OrderModel.class));
+                        } catch (JsonProcessingException e) {
+                          log.error("An error occurred while trying to update payment status", e);
+                          return Mono.empty();
+                        }
+                      })
+                  .map(
+                      order -> {
+                        order.setValidPayment(validPayment);
+                        return order;
+                      })
+                  .map(ReactorTest2::getOrder);
             })
         .doOnNext(order -> log("6.2. Updating payment status: order={}", order));
   }

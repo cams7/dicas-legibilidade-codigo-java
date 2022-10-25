@@ -1,12 +1,23 @@
 package br.com.cams7.test;
 
+import com.fasterxml.jackson.core.JsonGenerator;
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.DeserializationContext;
+import com.fasterxml.jackson.databind.JsonDeserializer;
+import com.fasterxml.jackson.databind.JsonSerializer;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializerProvider;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import java.io.IOException;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.AllArgsConstructor;
@@ -53,6 +64,7 @@ public class CommonWayTest {
   }
 
   private static final ModelMapper MODEL_MAPPER = new ModelMapper();
+  private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
   private static final Map<Long, CustomerResponse> CUSTOMERS =
       List.of(
@@ -83,7 +95,7 @@ public class CommonWayTest {
 
   private static final Map<Long, Boolean> CUSTOMER_PAYMENTS = Map.of(1l, true, 2l, false);
 
-  private static final List<OrderModel> ORDERS = new ArrayList<>();
+  private static final Map<String, String> ORDERS = new ConcurrentHashMap<>();
 
   // Webclient layer
   private Customer getCustomerById(Long customerId) {
@@ -140,29 +152,36 @@ public class CommonWayTest {
     model.setCustomer(customer);
     model.setCard(card);
     model.setItems(items);
-    ORDERS.add(model);
+
+    try {
+      ORDERS.put(model.getId(), OBJECT_MAPPER.writeValueAsString(model));
+    } catch (JsonProcessingException e) {
+      log.error("An error occurred while trying to save a new order", e);
+      return null;
+    }
+
     return getOrder(model);
   }
 
   // Repository layer
   private OrderEntity updatePaymentStatus(String orderId, Boolean validPayment) {
     log("6. Update payment status: orderId={}, validPayment={}", orderId, validPayment);
-    final var model =
-        ORDERS.parallelStream()
-            .filter(order -> orderId.equals(order.getId()))
-            .findFirst()
-            .map(
-                order -> {
-                  order.setValidPayment(validPayment);
-                  return order;
-                })
-            .orElseThrow(
-                () ->
-                    new RuntimeException(
-                        String.format(
-                            "Some error happened while updating payment status on order '%s'",
-                            orderId)));
-    return getOrder(model);
+
+    final var json = ORDERS.get(orderId);
+
+    if (json == null) {
+      log.error("Some error happened while updating payment status on order {}", orderId);
+      return null;
+    }
+
+    try {
+      final var model = OBJECT_MAPPER.readValue(json, OrderModel.class);
+      model.setValidPayment(validPayment);
+      return getOrder(model);
+    } catch (JsonProcessingException e) {
+      log.error("An error occurred while trying to update payment status", e);
+      return null;
+    }
   }
 
   private static OrderEntity getOrder(OrderModel order) {
@@ -198,6 +217,7 @@ public class CommonWayTest {
     order.setItems(items);
 
     order = saveOrder(order);
+    if (order == null) return null;
 
     final var isValidPayment = isValidPaymentByCustomerId(order.getCustomer().getCustomerId());
 
@@ -310,7 +330,11 @@ public class CommonWayTest {
     private CustomerModel customer;
     private CustomerCardModel card;
     private List<CartItemModel> items;
+
+    @JsonSerialize(using = LocalDateTimeSerializer.class)
+    @JsonDeserialize(using = LocalDateTimeDeserializer.class)
     private LocalDateTime registrationDate;
+
     private Double total;
     private Boolean validPayment;
   }
@@ -328,5 +352,21 @@ public class CommonWayTest {
     private ZonedDateTime registrationDate;
     private Double totalAmount;
     private Boolean validPayment;
+  }
+
+  public static class LocalDateTimeSerializer extends JsonSerializer<LocalDateTime> {
+    @Override
+    public void serialize(LocalDateTime date, JsonGenerator generator, SerializerProvider provider)
+        throws IOException {
+      generator.writeString(date.toString());
+    }
+  }
+
+  public static class LocalDateTimeDeserializer extends JsonDeserializer<LocalDateTime> {
+    @Override
+    public LocalDateTime deserialize(JsonParser parser, DeserializationContext context)
+        throws IOException {
+      return LocalDateTime.parse(parser.getText());
+    }
   }
 }
