@@ -14,6 +14,7 @@ import java.io.IOException;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -34,7 +35,7 @@ public class OptionalTest {
 
   private static final boolean SHOW_LOGS = true;
   private static final Map<Integer, Boolean> SHOW_TESTS =
-      Map.of(1, true, 2, true, 3, true, 4, true, 5, true, 6, true, 7, true);
+      Map.of(1, true, 2, true, 3, true, 4, true, 5, true, 6, true, 7, true, 8, true);
 
   public static void main(String[] args) {
     final var app = new OptionalTest();
@@ -73,6 +74,14 @@ public class OptionalTest {
     if (SHOW_TESTS.get(7)) {
       System.out.println("7. Get order ids:");
       System.out.println(app.getOrderIds().get());
+    }
+    if (SHOW_TESTS.get(8)) {
+      System.out.println("8. Get total item products:");
+      app.getTotalItemProducts()
+          .forEach(
+              (productId, total) -> {
+                System.out.println("Product: " + productId + ", total: " + total);
+              });
     }
   }
 
@@ -242,6 +251,22 @@ public class OptionalTest {
             .collect(Collectors.joining(",")));
   }
 
+  // Repository layer
+  private Map<Long, Double> getTotalProducts() {
+    return getOrders().parallelStream()
+        .map(OrderEntity::getItems)
+        .flatMap(List::stream)
+        .collect(
+            Collectors.groupingBy(
+                CartItem::getProductId, Collectors.summingDouble(CartItem::getTotalAmount)))
+        .entrySet()
+        .parallelStream()
+        .sorted((e1, e2) -> compare(e1.getValue(), e2.getValue()))
+        .collect(
+            Collectors.toMap(
+                Map.Entry::getKey, Map.Entry::getValue, (e1, e2) -> e1, LinkedHashMap::new));
+  }
+
   // Core layer
   public Optional<OrderEntity> saveOrder(Long customerId) {
     return getCustomerById(customerId)
@@ -286,13 +311,22 @@ public class OptionalTest {
     return getIds();
   }
 
+  // Core layer
+  public Map<Long, Double> getTotalItemProducts() {
+    return getTotalProducts();
+  }
+
   private static double getTotalAmount(List<CartItem> items) {
     return items.parallelStream().mapToDouble(CartItem::getTotalAmount).sum();
   }
 
   private static int compare(CartItem item1, CartItem item2) {
-    if (item2.getTotalAmount() > item1.getTotalAmount()) return 1;
-    if (item2.getTotalAmount() < item1.getTotalAmount()) return -1;
+    return compare(item1.getTotalAmount(), item2.getTotalAmount());
+  }
+
+  private static int compare(Double totalAmount1, Double totalAmount2) {
+    if (totalAmount2 > totalAmount1) return 1;
+    if (totalAmount2 < totalAmount1) return -1;
     return 0;
   }
 

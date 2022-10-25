@@ -16,9 +16,12 @@ import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import lombok.AllArgsConstructor;
@@ -45,6 +48,7 @@ public class OldWayTest {
     SHOW_TESTS.put(5, true);
     SHOW_TESTS.put(6, true);
     SHOW_TESTS.put(7, true);
+    SHOW_TESTS.put(8, true);
   }
 
   public static void main(String[] args) {
@@ -84,6 +88,14 @@ public class OldWayTest {
     if (SHOW_TESTS.get(7)) {
       System.out.println("7. Get order ids:");
       System.out.println(app.getOrderIds());
+    }
+    if (SHOW_TESTS.get(8)) {
+      System.out.println("8. Get total item products:");
+      app.getTotalItemProducts()
+          .forEach(
+              (productId, total) -> {
+                System.out.println("Product: " + productId + ", total: " + total);
+              });
     }
   }
 
@@ -265,8 +277,8 @@ public class OldWayTest {
   // Repository layer
   private String getIds() {
     String orderIds = "";
-    List<OrderEntity> orders = getOrders();
-    int totalOrders = orders.size();
+    final List<OrderEntity> orders = getOrders();
+    final int totalOrders = orders.size();
     if (totalOrders > 0) {
       for (int i = 0; i < orders.size(); i++) {
         orderIds += orders.get(i).getOrderId() + ",";
@@ -274,6 +286,45 @@ public class OldWayTest {
       orderIds = orderIds.substring(0, orderIds.length() - 1);
     }
     return orderIds;
+  }
+
+  // Repository layer
+  private Map<Long, Double> getTotalProducts() {
+    final List<OrderEntity> orders = getOrders();
+    final int totalOrders = orders.size();
+    if (totalOrders > 0) {
+      final Map<Long, Double> totalProducts = new HashMap<>();
+      for (int i = 0; i < orders.size(); i++) {
+        final OrderEntity order = orders.get(i);
+        final List<CartItem> items = order.getItems();
+        for (int j = 0; j < items.size(); j++) {
+          final CartItem item = items.get(j);
+          final Long productId = item.getProductId();
+          if (totalProducts.containsKey(productId)) {
+            final Double totalAmount = totalProducts.get(productId);
+            totalProducts.put(productId, item.getTotalAmount() + totalAmount);
+          } else {
+            totalProducts.put(productId, item.getTotalAmount());
+          }
+        }
+      }
+      final List<Map.Entry<Long, Double>> entries =
+          new ArrayList<Map.Entry<Long, Double>>(totalProducts.entrySet());
+      Collections.sort(
+          entries,
+          new Comparator<Map.Entry<Long, Double>>() {
+            @Override
+            public int compare(Entry<Long, Double> e1, Entry<Long, Double> e2) {
+              return OldWayTest.compare(e1.getValue(), e2.getValue());
+            }
+          });
+      final Map<Long, Double> sortedTotalProducts = new LinkedHashMap<Long, Double>();
+      for (Map.Entry<Long, Double> entry : entries) {
+        sortedTotalProducts.put(entry.getKey(), entry.getValue());
+      }
+      return sortedTotalProducts;
+    }
+    return new HashMap<>();
   }
 
   // Core layer
@@ -318,6 +369,11 @@ public class OldWayTest {
     return getIds();
   }
 
+  // Core layer
+  public Map<Long, Double> getTotalItemProducts() {
+    return getTotalProducts();
+  }
+
   private static double getTotalAmount(List<CartItem> items) {
     double totalAmount = 0;
     for (int i = 0; i < items.size(); i++) {
@@ -327,8 +383,12 @@ public class OldWayTest {
   }
 
   private static int compare(CartItem item1, CartItem item2) {
-    if (item2.getTotalAmount() > item1.getTotalAmount()) return 1;
-    if (item2.getTotalAmount() < item1.getTotalAmount()) return -1;
+    return compare(item1.getTotalAmount(), item2.getTotalAmount());
+  }
+
+  private static int compare(Double totalAmount1, Double totalAmount2) {
+    if (totalAmount2 > totalAmount1) return 1;
+    if (totalAmount2 < totalAmount1) return -1;
     return 0;
   }
 
