@@ -145,7 +145,11 @@ public class ReactorTest2 {
               item -> {
                 item.forEach(
                     (productId, total) -> {
-                      System.out.println("8. Get total item product -> Product: " + productId + ", total: " + total);
+                      System.out.println(
+                          "8. Get total item product -> Product: "
+                              + productId
+                              + ", total: "
+                              + total);
                     });
               },
               error -> {
@@ -306,7 +310,6 @@ public class ReactorTest2 {
   // Repository layer
   private Flux<OrderEntity> getOrders() {
     log("Get orders");
-
     return Flux.defer(
             () -> {
               sleep(REPOSITORY_DELAY_IN_MILLIS);
@@ -342,6 +345,7 @@ public class ReactorTest2 {
 
   // Repository layer
   private Mono<String> getIds() {
+    log("Get ids");
     return getOrders()
         .map(OrderEntity::getOrderId)
         .reduce(
@@ -352,6 +356,7 @@ public class ReactorTest2 {
 
   // Repository layer
   private Mono<Map<Long, Double>> getTotalProducts() {
+    log("Get total products");
     return getOrders()
         .collectList()
         .map(orders -> orders.parallelStream().map(OrderEntity::getItems).flatMap(List::stream))

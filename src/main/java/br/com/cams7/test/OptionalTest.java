@@ -212,7 +212,6 @@ public class OptionalTest {
   // Repository layer
   private List<OrderEntity> getOrders() {
     log("Get orders");
-
     return ORDERS.entrySet().parallelStream()
         .map(
             entry -> {
@@ -244,6 +243,7 @@ public class OptionalTest {
 
   // Repository layer
   private Optional<String> getIds() {
+    log("Get ids");
     return Optional.ofNullable(
         getOrders().parallelStream()
             .map(OrderEntity::getOrderId)
@@ -253,6 +253,7 @@ public class OptionalTest {
 
   // Repository layer
   private Map<Long, Double> getTotalProducts() {
+    log("Get total products");
     return getOrders().parallelStream()
         .map(OrderEntity::getItems)
         .flatMap(List::stream)

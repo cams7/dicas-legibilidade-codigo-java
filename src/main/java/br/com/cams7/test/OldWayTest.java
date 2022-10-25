@@ -276,6 +276,7 @@ public class OldWayTest {
 
   // Repository layer
   private String getIds() {
+    log("Get ids");
     String orderIds = "";
     final List<OrderEntity> orders = getOrders();
     final int totalOrders = orders.size();
@@ -290,6 +291,7 @@ public class OldWayTest {
 
   // Repository layer
   private Map<Long, Double> getTotalProducts() {
+    log("Get total products");
     final List<OrderEntity> orders = getOrders();
     final int totalOrders = orders.size();
     if (totalOrders > 0) {

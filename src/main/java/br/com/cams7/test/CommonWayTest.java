@@ -208,7 +208,6 @@ public class CommonWayTest {
   // Repository layer
   private List<OrderEntity> getOrders() {
     log("Get orders");
-
     return ORDERS.entrySet().parallelStream()
         .map(
             entry -> {
@@ -240,6 +239,7 @@ public class CommonWayTest {
 
   // Repository layer
   private String getIds() {
+    log("Get ids");
     return getOrders().parallelStream()
         .map(OrderEntity::getOrderId)
         .distinct()
@@ -248,6 +248,7 @@ public class CommonWayTest {
 
   // Repository layer
   private Map<Long, Double> getTotalProducts() {
+    log("Get total products");
     return getOrders().parallelStream()
         .map(OrderEntity::getItems)
         .flatMap(List::stream)
