@@ -34,7 +34,7 @@ public class OptionalTest {
 
   private static final boolean SHOW_LOGS = true;
   private static final Map<Integer, Boolean> SHOW_TESTS =
-      Map.of(1, true, 2, true, 3, true, 4, true, 5, true);
+      Map.of(1, true, 2, true, 3, true, 4, true, 5, true, 6, true);
 
   public static void main(String[] args) {
     final var app = new OptionalTest();
@@ -61,6 +61,14 @@ public class OptionalTest {
       } catch (RuntimeException e) {
         System.out.println("5. Error: " + e.getMessage());
       }
+    }
+    if (SHOW_TESTS.get(6)) {
+      System.out.println("6. Get all orders:");
+      app.getAllOrders()
+          .forEach(
+              order -> {
+                System.out.println(order);
+              });
     }
   }
 
@@ -188,6 +196,32 @@ public class OptionalTest {
         .map(OptionalTest::getOrder);
   }
 
+  // Repository layer
+  private List<OrderEntity> getOrders() {
+    log("Get all orders");
+
+    return ORDERS.entrySet().parallelStream()
+        .map(
+            entry -> {
+              final var orderId = entry.getKey();
+              final var json = entry.getValue();
+
+              if (json == null) {
+                throw new RuntimeException(
+                    String.format("Some error happened while getting order %s", orderId));
+              }
+
+              try {
+                return OBJECT_MAPPER.readValue(json, OrderModel.class);
+              } catch (JsonProcessingException e) {
+                throw new RuntimeException(
+                    "An error occurred while trying to getting all orders", e);
+              }
+            })
+        .map(OptionalTest::getOrder)
+        .collect(Collectors.toList());
+  }
+
   private static OrderEntity getOrder(OrderModel order) {
     return MODEL_MAPPER
         .map(order, OrderEntity.class)
@@ -228,6 +262,11 @@ public class OptionalTest {
                   .flatMap(
                       isValidPayment -> updatePaymentStatus(order.getOrderId(), isValidPayment));
             });
+  }
+
+  // Core layer
+  public List<OrderEntity> getAllOrders() {
+    return getOrders();
   }
 
   private static double getTotalAmount(List<CartItem> items) {

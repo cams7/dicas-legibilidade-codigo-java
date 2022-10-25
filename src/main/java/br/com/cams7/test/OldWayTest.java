@@ -43,6 +43,7 @@ public class OldWayTest {
     SHOW_TESTS.put(3, true);
     SHOW_TESTS.put(4, true);
     SHOW_TESTS.put(5, true);
+    SHOW_TESTS.put(6, true);
   }
 
   public static void main(String[] args) {
@@ -70,6 +71,14 @@ public class OldWayTest {
       } catch (RuntimeException e) {
         System.out.println("5. Error: " + e.getMessage());
       }
+    }
+    if (SHOW_TESTS.get(6)) {
+      System.out.println("6. Get all orders:");
+      app.getAllOrders()
+          .forEach(
+              order -> {
+                System.out.println(order);
+              });
     }
   }
 
@@ -216,6 +225,30 @@ public class OldWayTest {
     }
   }
 
+  // Repository layer
+  private List<OrderEntity> getOrders() {
+    log("Get all orders");
+    List<OrderEntity> orders = new ArrayList<>();
+
+    for (String orderId : ORDERS.keySet()) {
+      final String json = ORDERS.get(orderId);
+
+      if (json == null) {
+        throw new RuntimeException(
+            String.format("Some error happened while getting order %s", orderId));
+      }
+
+      try {
+        final OrderModel model = OBJECT_MAPPER.readValue(json, OrderModel.class);
+        orders.add(getOrder(model));
+      } catch (JsonProcessingException e) {
+        throw new RuntimeException("An error occurred while trying to getting all orders", e);
+      }
+    }
+
+    return orders;
+  }
+
   private static OrderEntity getOrder(OrderModel order) {
     return MODEL_MAPPER
         .map(order, OrderEntity.class)
@@ -254,6 +287,11 @@ public class OldWayTest {
     order = updatePaymentStatus(order.getOrderId(), isValidPayment);
 
     return order;
+  }
+
+  // Core layer
+  public List<OrderEntity> getAllOrders() {
+    return getOrders();
   }
 
   private static double getTotalAmount(List<CartItem> items) {

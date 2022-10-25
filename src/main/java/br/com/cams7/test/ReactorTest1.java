@@ -35,7 +35,7 @@ public class ReactorTest1 {
 
   private static final boolean SHOW_LOGS = true;
   private static final Map<Integer, Boolean> SHOW_TESTS =
-      Map.of(1, true, 2, true, 3, true, 4, true, 5, true);
+      Map.of(1, true, 2, true, 3, true, 4, true, 5, true, 6, true);
 
   public static void main(String[] args) {
     final var app = new ReactorTest1();
@@ -44,70 +44,80 @@ public class ReactorTest1 {
       app.saveOrder(1l)
           .subscribe(
               order -> {
-                System.out.println("1. Registred order:");
-                System.out.println(order);
+                System.out.println("1. Registred order: " + order);
               },
               error -> {
-                System.out.println("1. Error: " + error.getMessage());
+                System.out.println("1. Registred order -> Error: " + error.getMessage());
               },
               () -> {
-                System.out.println("1. Completed");
+                System.out.println("1. Registred order -> Completed");
               });
     }
     if (SHOW_TESTS.get(2)) {
       app.saveOrder(2l)
           .subscribe(
               order -> {
-                System.out.println("2. Registred order with invalid payment:");
-                System.out.println(order);
+                System.out.println("2. Registred order with invalid payment: " + order);
               },
               error -> {
-                System.out.println("2. Error: " + error.getMessage());
+                System.out.println(
+                    "2. Registred order with invalid payment -> Error: " + error.getMessage());
               },
               () -> {
-                System.out.println("2. Completed");
+                System.out.println("2. Registred order with invalid payment -> Completed");
               });
     }
     if (SHOW_TESTS.get(3)) {
       app.saveOrder(5l)
           .subscribe(
               order -> {
-                System.out.println("3. Customer not found:");
-                System.out.println(order);
+                System.out.println("3. Customer not found: " + order);
               },
               error -> {
-                System.out.println("3. Error: " + error.getMessage());
+                System.out.println("3. Customer not found -> Error: " + error.getMessage());
               },
               () -> {
-                System.out.println("3. Completed");
+                System.out.println("3. Customer not found -> Completed");
               });
     }
     if (SHOW_TESTS.get(4)) {
       app.saveOrder(4l)
           .subscribe(
               order -> {
-                System.out.println("4. Customer's card not found:");
-                System.out.println(order);
+                System.out.println("4. Customer's card not found: " + order);
               },
               error -> {
-                System.out.println("4. Error: " + error.getMessage());
+                System.out.println("4. Customer's card not found -> Error: " + error.getMessage());
               },
               () -> {
-                System.out.println("4. Completed");
+                System.out.println("4. Customer's card not found -> Completed");
               });
     }
     if (SHOW_TESTS.get(5)) {
       app.saveOrder(3l)
           .subscribe(
               order -> {
-                System.out.println("5. Customer cart's items not found:");
-                System.out.println(order);
+                System.out.println("5. Customer cart's items not found: " + order);
               },
               error -> {
-                System.out.println("5. Error: " + error.getMessage());
+                System.out.println(
+                    "5. Customer cart's items not found -> Error: " + error.getMessage());
               },
               () -> {
-                System.out.println("5. Completed");
+                System.out.println("5. Customer cart's items not found -> Completed");
+              });
+    }
+    if (SHOW_TESTS.get(6)) {
+      app.getAllOrders()
+          .subscribe(
+              order -> {
+                System.out.println("6. Get order: " + order);
+              },
+              error -> {
+                System.out.println("6. Get order -> Error: " + error.getMessage());
+              },
+              () -> {
+                System.out.println("6. Get order -> Completed");
               });
     }
   }
@@ -243,6 +253,31 @@ public class ReactorTest1 {
         .doOnNext(order -> log("6.2. Updating payment status: order={}", order));
   }
 
+  // Repository layer
+  private Flux<OrderEntity> getOrders() {
+    log("Get all orders");
+
+    return Flux.fromIterable(ORDERS.entrySet())
+        .map(
+            entry -> {
+              final var orderId = entry.getKey();
+              final var json = entry.getValue();
+              if (json == null) {
+                throw new RuntimeException(
+                    String.format("Some error happened while getting order %s", orderId));
+              }
+
+              try {
+                return OBJECT_MAPPER.readValue(json, OrderModel.class);
+              } catch (JsonProcessingException e) {
+                throw new RuntimeException(
+                    "An error occurred while trying to getting all orders", e);
+              }
+            })
+        .map(ReactorTest1::getOrder)
+        .doOnNext(order -> log("Getting order {}", order));
+  }
+
   private static OrderEntity getOrder(OrderModel order) {
     return MODEL_MAPPER
         .map(order, OrderEntity.class)
@@ -283,6 +318,11 @@ public class ReactorTest1 {
                   .flatMap(
                       isValidPayment -> updatePaymentStatus(order.getOrderId(), isValidPayment));
             });
+  }
+
+  // Core layer
+  public Flux<OrderEntity> getAllOrders() {
+    return getOrders();
   }
 
   private static double getTotalAmount(List<CartItem> items) {
