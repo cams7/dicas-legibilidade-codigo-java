@@ -49,6 +49,7 @@ public class OldWayTest {
     SHOW_TESTS.put(6, true);
     SHOW_TESTS.put(7, true);
     SHOW_TESTS.put(8, true);
+    SHOW_TESTS.put(9, true);
   }
 
   public static void main(String[] args) {
@@ -96,6 +97,13 @@ public class OldWayTest {
               (productId, total) -> {
                 System.out.println("Product: " + productId + ", total: " + total);
               });
+    }
+    if (SHOW_TESTS.get(9)) {
+      System.out.println("9. Database data:");
+      ORDERS.forEach(
+          (key, data) -> {
+            System.out.println(key + ": " + data);
+          });
     }
   }
 

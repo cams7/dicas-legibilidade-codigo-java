@@ -36,7 +36,7 @@ public class ReactorTest1 {
 
   private static final boolean SHOW_LOGS = true;
   private static final Map<Integer, Boolean> SHOW_TESTS =
-      Map.of(1, true, 2, true, 3, true, 4, true, 5, true, 6, true, 7, true, 8, true);
+      Map.of(1, true, 2, true, 3, true, 4, true, 5, true, 6, true, 7, true, 8, true, 9, true);
 
   public static void main(String[] args) {
     final var app = new ReactorTest1();
@@ -153,6 +153,13 @@ public class ReactorTest1 {
               () -> {
                 System.out.println("8. Get total item product -> Completed");
               });
+    }
+    if (SHOW_TESTS.get(9)) {
+      System.out.println("9. Database data:");
+      ORDERS.forEach(
+          (key, data) -> {
+            System.out.println(key + ": " + data);
+          });
     }
   }
 
