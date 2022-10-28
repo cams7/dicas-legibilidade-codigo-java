@@ -243,6 +243,7 @@ public class OldWayTest {
     try {
       final OrderModel model = OBJECT_MAPPER.readValue(json, OrderModel.class);
       model.setValidPayment(validPayment);
+      ORDERS.put(model.getId(), OBJECT_MAPPER.writeValueAsString(model));
       return getOrder(model);
     } catch (JsonProcessingException e) {
       log.error("An error occurred while trying to update payment status", e);

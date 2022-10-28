@@ -204,14 +204,20 @@ public class OptionalTest {
               try {
                 return Optional.ofNullable(OBJECT_MAPPER.readValue(json, OrderModel.class));
               } catch (JsonProcessingException e) {
-                log.error("An error occurred while trying to update payment status", e);
+                log.error("An error occurred while trying to get order", e);
                 return Optional.empty();
               }
             })
-        .map(
-            order -> {
-              order.setValidPayment(validPayment);
-              return order;
+        .flatMap(
+            model -> {
+              try {
+                model.setValidPayment(validPayment);
+                ORDERS.put(model.getId(), OBJECT_MAPPER.writeValueAsString(model));
+                return Optional.of(model);
+              } catch (JsonProcessingException e) {
+                log.error("An error occurred while trying to update payment status", e);
+                return Optional.empty();
+              }
             })
         .map(OptionalTest::getOrder);
   }

@@ -281,14 +281,20 @@ public class ReactorTest1 {
               try {
                 return Mono.justOrEmpty(OBJECT_MAPPER.readValue(json, OrderModel.class));
               } catch (JsonProcessingException e) {
-                log.error("An error occurred while trying to update payment status", e);
+                log.error("An error occurred while trying to get order", e);
                 return Mono.empty();
               }
             })
-        .map(
-            order -> {
-              order.setValidPayment(validPayment);
-              return order;
+        .flatMap(
+            model -> {
+              try {
+                model.setValidPayment(validPayment);
+                ORDERS.put(model.getId(), OBJECT_MAPPER.writeValueAsString(model));
+                return Mono.just(model);
+              } catch (JsonProcessingException e) {
+                log.error("An error occurred while trying to update payment status", e);
+                return Mono.empty();
+              }
             })
         .map(ReactorTest1::getOrder)
         .doOnNext(order -> log("6.2. Updating payment status: order={}", order));
